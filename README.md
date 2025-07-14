@@ -22,3 +22,17 @@ poetry install
 ```bash
 poetry run pytest
 ```
+
+## CLI Usage
+
+### Search PubMed
+```bash
+# Basic search
+biolitminer search "COVID-19" --max 10 --email "your.email@example.com"
+
+# Search with verbose output
+biolitminer search "BRCA1 breast cancer" --verbose --email "your.email@example.com"
+
+# Search and save to JSON file
+biolitminer search "machine learning genomics" --output "results.json" --email "your.email@example.com"
+```
