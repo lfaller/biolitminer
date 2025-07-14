@@ -36,3 +36,24 @@ biolitminer search "BRCA1 breast cancer" --verbose --email "your.email@example.c
 # Search and save to JSON file
 biolitminer search "machine learning genomics" --output "results.json" --email "your.email@example.com"
 ```
+
+## Versioning
+
+The version is maintained in `pyproject.toml`. Any other files (right now, `cli.py`) pull from there.
+
+```bash
+# For bug fixes (0.2.0 → 0.2.1)
+poetry version patch
+
+# For new features (0.2.1 → 0.3.0)
+poetry version minor
+
+# For breaking changes (0.3.0 → 1.0.0)
+poetry version major
+
+# Check the version was updated
+poetry run biolitminer version
+
+# See current version without running the CLI
+poetry version
+```
