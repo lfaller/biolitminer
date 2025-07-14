@@ -9,3 +9,16 @@ A biomedical literature mining tool that extracts knowledge from PubMed articles
 - **Knowledge Graph**: Build relationships between entities from literature
 - **Interactive Dashboard**: Streamlit-based visualization and exploration
 - **Database Integration**: Link entities to external databases (UniProt, OMIM, ChEMBL)
+
+## Installation
+
+```bash
+git clone <this repo>
+poetry install
+```
+
+## Run Tests
+
+```bash
+poetry run pytest
+```
