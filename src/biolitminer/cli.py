@@ -10,6 +10,7 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
 
 from .core.logging_config import setup_logging
+from .core.version import get_version
 from .data.pubmed_client import PubMedClient
 
 app = typer.Typer(help="BioLitMiner - Biomedical Literature Mining Tool")
@@ -132,7 +133,10 @@ def search(
 @app.command()
 def version():
     """Show BioLitMiner version."""
-    console.print("[bold blue]BioLitMiner[/bold blue] version [green]0.2.1[/green]")
+    current_version = get_version()
+    console.print(
+        f"[bold blue]BioLitMiner[/bold blue] version [green]{current_version}[/green]"
+    )
 
 
 if __name__ == "__main__":
