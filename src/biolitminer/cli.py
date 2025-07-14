@@ -17,6 +17,7 @@ console = Console()
 
 
 @app.command()
+@app.command()
 def search(
     query: str = typer.Argument(..., help="Search query for PubMed"),
     max_results: int = typer.Option(
@@ -50,15 +51,34 @@ def search(
         TextColumn("[progress.description]{task.description}"),
         console=console,
     ) as progress:
-        task = progress.add_task("Searching PubMed...", total=None)
-        articles = client.search_and_fetch(query, max_results)
-        progress.update(task, description="Search completed!")
+        # First get PMIDs
+        task1 = progress.add_task("Searching PubMed...", total=None)
+        pmids = client.search_pubmed(query, max_results)
+        progress.update(task1, description=f"Found {len(pmids)} PMIDs")
+
+        if not pmids:
+            progress.update(task1, description="No articles found")
+            console.print("[red]No articles found![/red]")
+            return
+
+        # Then fetch details
+        task2 = progress.add_task("Fetching article details...", total=None)
+        articles = client.fetch_article_details(pmids)
+        progress.update(task2, description="Parsing completed!")
 
     if not articles:
-        console.print("[red]No articles found![/red]")
+        console.print("[red]No articles could be parsed![/red]")
         return
 
-    # Display results in a nice table
+    # Show parsing statistics
+    parsed_count = len(articles)
+    total_count = len(pmids)
+    if parsed_count < total_count:
+        console.print(
+            f"[yellow]Warning: Successfully parsed {parsed_count}/{total_count} articles[/yellow]"
+        )
+
+    # Display results in a nice table (rest of the function stays the same)
     table = Table(show_header=True, header_style="bold magenta")
     table.add_column("PMID", style="cyan", width=10)
     table.add_column("Title", style="white", width=50)
@@ -76,12 +96,13 @@ def search(
         # Get first few authors
         author_names = []
         for author in article["authors"][:2]:  # First 2 authors
-            author_names.append(f"{author['first_name']} {author['last_name']}")
+            first_name = author["first_name"] or author["initials"]
+            author_names.append(f"{first_name} {author['last_name']}")
 
         if len(article["authors"]) > 2:
             author_names.append("et al.")
 
-        authors_str = ", ".join(author_names)
+        authors_str = ", ".join(author_names) if author_names else "No authors"
 
         table.add_row(
             article["pmid"],
@@ -95,7 +116,9 @@ def search(
         )
 
     console.print(table)
-    console.print(f"\n[bold green]Found {len(articles)} articles[/bold green]")
+    console.print(
+        f"\n[bold green]Successfully retrieved {len(articles)} articles[/bold green]"
+    )
 
     # Save to file if requested
     if output:
@@ -109,7 +132,7 @@ def search(
 @app.command()
 def version():
     """Show BioLitMiner version."""
-    console.print("[bold blue]BioLitMiner[/bold blue] version [green]0.2.0[/green]")
+    console.print("[bold blue]BioLitMiner[/bold blue] version [green]0.2.1[/green]")
 
 
 if __name__ == "__main__":

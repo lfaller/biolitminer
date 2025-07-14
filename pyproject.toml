@@ -1,6 +1,6 @@
 [project]
 name = "biolitminer"
-version = "0.2.0"
+version = "0.2.1"
 description = "A biomedical literature mining tool with knowledge graph construction and interactive visualization"
 authors = [
     {name = "Lina L Faller",email = "lina.faller@gmail.com"}

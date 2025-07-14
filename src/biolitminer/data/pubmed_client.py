@@ -169,7 +169,7 @@ class PubMedClient:
             article_elem: XML element containing article data
 
         Returns:
-            Dictionary with article details
+            Dictionary with article details or None if parsing fails
         """
         try:
             # Get the basic citation info
@@ -180,7 +180,9 @@ class PubMedClient:
 
             # Extract PMID
             pmid_elem = citation.find(".//PMID")
-            pmid = pmid_elem.text if pmid_elem is not None else ""
+            pmid = pmid_elem.text if pmid_elem is not None else "Unknown"
+
+            logger.debug(f"Parsing article with PMID: {pmid}")
 
             # Extract article info
             article = citation.find(".//Article")
@@ -188,35 +190,119 @@ class PubMedClient:
                 logger.warning(f"No Article element found for PMID {pmid}")
                 return None
 
-            # Extract title
+            # Extract title - handle multiple possible locations
+            title = ""
             title_elem = article.find(".//ArticleTitle")
-            title = title_elem.text if title_elem is not None else ""
+            if title_elem is not None and title_elem.text:
+                title = title_elem.text.strip()
+            else:
+                logger.warning(f"No title found for PMID {pmid}")
+                title = "No title available"
 
-            # Extract abstract
-            abstract_elem = article.find(".//AbstractText")
-            abstract = abstract_elem.text if abstract_elem is not None else ""
+            # Extract abstract - handle multiple AbstractText elements
+            abstract = ""
+            abstract_section = article.find(".//Abstract")
+            if abstract_section is not None:
+                abstract_texts = abstract_section.findall(".//AbstractText")
+                if abstract_texts:
+                    # Join multiple abstract sections
+                    abstract_parts = []
+                    for abs_text in abstract_texts:
+                        if abs_text.text:
+                            # Handle structured abstracts with labels
+                            label = abs_text.get("Label", "")
+                            text = abs_text.text.strip()
+                            if label:
+                                abstract_parts.append(f"{label}: {text}")
+                            else:
+                                abstract_parts.append(text)
+                    abstract = " ".join(abstract_parts)
+                else:
+                    logger.debug(f"No AbstractText found for PMID {pmid}")
 
-            # Extract authors
+            # Extract authors with better error handling
             authors = []
             author_list = article.find(".//AuthorList")
             if author_list is not None:
                 for author_elem in author_list.findall(".//Author"):
-                    last_name_elem = author_elem.find(".//LastName")
-                    first_name_elem = author_elem.find(".//ForeName")
+                    try:
+                        last_name_elem = author_elem.find(".//LastName")
+                        first_name_elem = author_elem.find(".//ForeName")
+                        initials_elem = author_elem.find(".//Initials")
 
-                    if last_name_elem is not None and first_name_elem is not None:
-                        authors.append(
-                            {
-                                "last_name": last_name_elem.text,
-                                "first_name": first_name_elem.text,
-                            }
+                        # Handle different author formats
+                        last_name = (
+                            last_name_elem.text.strip()
+                            if last_name_elem is not None and last_name_elem.text
+                            else ""
+                        )
+                        first_name = (
+                            first_name_elem.text.strip()
+                            if first_name_elem is not None and first_name_elem.text
+                            else ""
+                        )
+                        initials = (
+                            initials_elem.text.strip()
+                            if initials_elem is not None and initials_elem.text
+                            else ""
                         )
 
-            # Extract journal
-            journal_elem = article.find(".//Journal/Title")
-            journal = journal_elem.text if journal_elem is not None else ""
+                        # Only add author if we have at least a last name
+                        if last_name:
+                            authors.append(
+                                {
+                                    "last_name": last_name,
+                                    "first_name": first_name,
+                                    "initials": initials,
+                                }
+                            )
+                        else:
+                            # Handle collective names or other author formats
+                            collective_name = author_elem.find(".//CollectiveName")
+                            if collective_name is not None and collective_name.text:
+                                authors.append(
+                                    {
+                                        "last_name": collective_name.text.strip(),
+                                        "first_name": "",
+                                        "initials": "",
+                                    }
+                                )
 
-            logger.debug(f"Parsed article {pmid}: {title[:50]}...")
+                    except Exception as e:
+                        logger.warning(
+                            f"Error parsing individual author for PMID {pmid}: {e}"
+                        )
+                        continue
+
+            # Extract journal with fallback options
+            journal = ""
+            # Try multiple journal title locations
+            journal_elem = article.find(".//Journal/Title")
+            if journal_elem is None:
+                journal_elem = article.find(".//Journal/ISOAbbreviation")
+            if journal_elem is None:
+                journal_elem = article.find(".//MedlineTA")
+
+            if journal_elem is not None and journal_elem.text:
+                journal = journal_elem.text.strip()
+            else:
+                logger.debug(f"No journal found for PMID {pmid}")
+                journal = "Unknown journal"
+
+            # Extract publication date with error handling
+            pub_date = None
+            try:
+                journal_issue = article.find(".//Journal/JournalIssue")
+                if journal_issue is not None:
+                    pub_date_elem = journal_issue.find(".//PubDate")
+                    if pub_date_elem is not None:
+                        year_elem = pub_date_elem.find(".//Year")
+                        if year_elem is not None and year_elem.text:
+                            pub_date = year_elem.text.strip()
+            except Exception as e:
+                logger.debug(f"Error parsing publication date for PMID {pmid}: {e}")
+
+            logger.debug(f"Successfully parsed article {pmid}: {title[:50]}...")
 
             return {
                 "pmid": pmid,
@@ -224,10 +310,20 @@ class PubMedClient:
                 "abstract": abstract,
                 "authors": authors,
                 "journal": journal,
+                "publication_date": pub_date,
             }
 
         except Exception as e:
             logger.error(f"Error parsing article XML: {e}")
+            # Try to extract at least the PMID for debugging
+            try:
+                pmid_elem = article_elem.find(".//PMID")
+                pmid = pmid_elem.text if pmid_elem is not None else "Unknown"
+                logger.error(f"Failed to parse article with PMID: {pmid}")
+            except (AttributeError, TypeError) as debug_error:
+                logger.error(
+                    f"Could not even extract PMID from failed article: {debug_error}"
+                )
             return None
 
     def search_and_fetch(self, query: str, max_results: int = 10) -> List:
