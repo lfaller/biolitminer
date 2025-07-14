@@ -1,6 +1,7 @@
 """
 Pytest tests for our data models.
 """
+
 from src.biolitminer.core.models import Article, Author
 
 
