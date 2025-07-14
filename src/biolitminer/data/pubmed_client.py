@@ -2,10 +2,11 @@
 Simple PubMed client for searching biomedical literature.
 """
 
-import requests
+import time
 import xml.etree.ElementTree as ET
 from typing import List
-import time
+
+import requests
 
 from ..core.logging_config import get_logger
 
