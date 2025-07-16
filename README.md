@@ -17,6 +17,25 @@ git clone <this repo>
 poetry install
 ```
 
+## Streamlit Dashboard
+
+Launch the interactive web dashboard:
+
+```bash
+poetry run streamlit run src/biolitminer/dashboard/app.py
+```
+
+The dashboard provides:
+
+* Interactive search interface
+* Real-time progress indicators
+* Rich article display with expandable details
+* Summary statistics and metrics
+* JSON export functionality
+* Responsive design with modular architecture
+
+Access at: http://localhost:8501
+
 ## Run Tests
 
 ```bash
